@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Multi-language Quiz — B.Tech Practice</title>
+<style>
+  :root{ --bg:#0b1020; --card:#0f1830; --muted:#9fb0e6; --accent:#5b8cff; --text:#eaf0ff;
+         --radius:12px; --gap:14px; --max:900px;}
+  *{box-sizing:border-box} body{margin:0; font-family:Inter,system-ui,Arial; background:linear-gradient(180deg,#081024,#0b1020); color:var(--text); display:flex; align-items:flex-start; justify-content:center; padding:28px;}
+  .wrap{width:100%; max-width:var(--max);}
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.04); padding:20px; border-radius:var(--radius); box-shadow:0 10px 30px rgba(0,0,0,.45);}
+  header{display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:16px;}
+  h1{font-size:1.25rem; margin:0}
+  .controls{display:flex; gap:8px; flex-wrap:wrap; align-items:center;}
+  select, button{padding:8px 10px; border-radius:10px; border:1px solid rgba(255,255,255,0.06); background:#0e1530; color:var(--text)}
+  button.primary{background:linear-gradient(135deg,var(--accent),#ff6aa6); color:#06102a; font-weight:700;}
+  main{margin-top:18px;}
+  .meta{display:flex; gap:12px; align-items:center; margin-bottom:10px; color:var(--muted)}
+  .qbox{padding:14px; border-radius:10px; background:rgba(255,255,255,0.02); border:1px solid rgba(255,255,255,0.03)}
+  .question{font-weight:600; margin:0 0 10px}
+  .opts{display:grid; gap:10px; margin-top:8px}
+  .opt{padding:10px; border-radius:10px; background:#0d1630; cursor:pointer; border:1px solid rgba(255,255,255,0.03)}
+  .opt:hover{transform:translateY(-2px)}
+  .opt.correct{outline:3px solid rgba(90,200,120,0.18)}
+  .opt.wrong{outline:3px solid rgba(255,90,90,0.12)}
+  .explain{margin-top:10px; color:var(--muted)}
+  .footer{display:flex; justify-content:space-between; align-items:center; margin-top:12px; color:var(--muted)}
+  .score{font-weight:700}
+  @media (max-width:600px){ header{flex-direction:column; align-items:flex-start} .controls{width:100%; justify-content:space-between} }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <header>
+      <h1>Multi-language Quiz — B.Tech Practice</h1>
+      <div class="controls">
+        <label>
+          Language
+          <select id="lang">
+            <option value="python">Python</option>
+            <option value="java">Java</option>
+            <option value="c">C</option>
+            <option value="cpp">C++</option>
+          </select>
+        </label>
+        <label>
+          Module
+          <select id="level">
+            <option value="basics">Basics</option>
+            <option value="advanced">Advanced</option>
+          </select>
+        </label>
+        <label>
+          # Questions
+          <select id="count">
+            <option>3</option><option>5</option><option selected>8</option><option>10</option>
+          </select>
+        </label>
+        <button id="start" class="primary">Start Quiz</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="meta">
+        <div id="moduleLabel">Choose language & module and press Start</div>
+        <div style="flex:1"></div>
+        <div class="score" id="scoreLabel"></div>
+      </div>
+
+      <div id="quizArea" style="display:none">
+        <div class="qbox">
+          <p class="question" id="questionText"></p>
+          <div class="opts" id="options"></div>
+          <div class="explain" id="explain" style="display:none"></div>
+        </div>
+
+        <div class="footer">
+          <div>
+            <button id="prev">Prev</button>
+            <button id="next">Next</button>
+            <button id="finish" class="primary">Finish</button>
+          </div>
+          <div>
+            High score: <span id="highscore">—</span>
+          </div>
+        </div>
+      </div>
+
+      <div id="summary" style="display:none; margin-top:14px;">
+        <div class="qbox">
+          <h3>Results</h3>
+          <p id="resultText"></p>
+          <div id="breakdown"></div>
+          <button id="retry">Retry</button>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+
+<script>
+/* ===== Question banks (sample). Move to external JSON files if needed. ===== */
+const BANK = {
+  python: {
+    basics: [
+      { q:"What is the type of [] in Python?", opts:["list","tuple","dict","set"], a:0, exp:"[] is a list literal." },
+      { q:"Which keyword defines a function?", opts:["func","def","function","lambda"], a:1, exp:"Use def to define functions." },
+      { q:"Immutable type among these:", opts:["list","set","tuple","dict"], a:2, exp:"Tuples are immutable." },
+      { q:"What does 'len' return for a string?", opts:["number of characters","ASCII sum","bytes size","hash"], a:0, exp:"len() returns number of characters." }
+    ],
+    advanced: [
+      { q:"What does 'yield' produce?", opts:["exception","generator","list","decorator"], a:1, exp:"yield makes a generator preserving state." },
+      { q:"GIL in CPython restricts:", opts:["I/O ops","thread bytecode execution","memory allocation","list ops"], a:1, exp:"Only one thread executes Python bytecode at a time." },
+      { q:"Average 'in' on set is:", opts:["O(1)","O(n)","O(log n)","O(n log n)"], a:0, exp:"Sets are hash-based, average O(1)." }
+    ]
+  },
+  java: {
+    basics: [
+      { q:"Keyword to extend a class?", opts:["implements","extends","inherits","super"], a:1, exp:"extends used for inheritance." },
+      { q:"Default value of int field?", opts:["null","0","undefined","NaN"], a:1, exp:"Numeric fields default to 0." },
+      { q:"Which is not primitive?", opts:["int","String","double","boolean"], a:1, exp:"String is a class." }
+    ],
+    advanced: [
+      { q:"Collection that keeps insertion order and allows duplicates?", opts:["HashSet","TreeSet","ArrayList","HashMap"], a:2, exp:"ArrayList preserves insertion order and allows duplicates." },
+      { q:"'volatile' guarantees:", opts:["atomic ops","visibility across threads","faster I/O","immutability"], a:1, exp:"volatile ensures visibility of writes." }
+    ]
+  },
+  c: {
+    basics: [
+      { q:"Header for printf?", opts:["stdlib.h","stdio.h","string.h","ctype.h"], a:1, exp:"printf is in stdio.h." },
+      { q:"Array indexing starts at:", opts:["1","0","Depends","Compiler"], a:1, exp:"C arrays are 0-based." },
+      { q:"Specifier for integer?", opts:["%d","%f","%c","%s"], a:0, exp:"%d prints int." }
+    ],
+    advanced: [
+      { q:"Double free leads to:", opts:["Nothing","Undefined behavior","Memory leak only","Compile error"], a:1, exp:"Double free is undefined behavior." },
+      { q:"Which is NOT storage class?", opts:["auto","register","static","sealed"], a:3, exp:"sealed isn't a C storage class." }
+    ]
+  },
+  cpp: {
+    basics: [
+      { q:"Header that contains std::vector?", opts:["array","vector","list","deque"], a:1, exp:"std::vector is in <vector>." },
+      { q:"Keyword for runtime polymorphism?", opts:["final","virtual","friend","static"], a:1, exp:"virtual enables dynamic dispatch." }
+    ],
+    advanced: [
+      { q:"std::move does:", opts:["Copies","Casts to rvalue (enables move)","Deletes","Prevents moves"], a:1, exp:"std::move casts to rvalue reference." },
+      { q:"Unique ownership smart pointer:", opts:["shared_ptr","unique_ptr","weak_ptr","auto_ptr"], a:1, exp:"std::unique_ptr expresses unique ownership." }
+    ]
+  }
+};
+
+/* ===== App state ===== */
+let state = {
+  pool: [],
+  index: 0,
+  answers: [], // store chosen index or null
+  count: 0,
+  lang: 'python',
+  level: 'basics',
+  highkey: ''
+};
+
+const el = id => document.getElementById(id);
+const langSel = el('lang'), levelSel = el('level'), startBtn = el('start'), countSel = el('count');
+const quizArea = el('quizArea'), questionText = el('questionText'), optionsEl = el('options'), explainEl = el('explain');
+const moduleLabel = el('moduleLabel'), scoreLabel = el('scoreLabel'), highscoreEl = el('highscore');
+const prevBtn = el('prev'), nextBtn = el('next'), finishBtn = el('finish'), summary = el('summary');
+const resultText = el('resultText'), breakdown = el('breakdown'), retry = el('retry');
+
+/* ===== Handlers ===== */
+startBtn.addEventListener('click', startQuiz);
+prevBtn.addEventListener('click', ()=> changeIndex(state.index-1));
+nextBtn.addEventListener('click', ()=> changeIndex(state.index+1));
+finishBtn.addEventListener('click', finishQuiz);
+retry.addEventListener('click', ()=> startQuiz(true));
+
+function startQuiz(retryMode=false){
+  state.lang = langSel.value;
+  state.level = levelSel.value;
+  state.count = parseInt(countSel.value,10);
+  moduleLabel.textContent = `${capitalize(state.lang)} — ${capitalize(state.level)}`;
+  state.highkey = `high_${state.lang}_${state.level}`;
+  const bank = (BANK[state.lang] && BANK[state.lang][state.level]) || [];
+  // clone and shuffle
+  let pool = bank.slice();
+  shuffle(pool);
+  if(state.count < pool.length) pool = pool.slice(0, state.count);
+  state.pool = pool;
+  state.index = 0;
+  state.answers = Array(pool.length).fill(null);
+  quizArea.style.display = 'block';
+  summary.style.display = 'none';
+  explainEl.style.display = 'none';
+  showQuestion();
+  updateHighscore();
+  scoreLabel.textContent = `0 / ${state.pool.length}`;
+}
+
+function showQuestion(){
+  if(!state.pool.length) return;
+  const q = state.pool[state.index];
+  questionText.textContent = (state.index+1) + '. ' + q.q;
+  explainEl.style.display = 'none';
+  optionsEl.innerHTML = '';
+  q.opts.forEach((opt, i)=>{
+    const btn = document.createElement('div');
+    btn.className = 'opt';
+    btn.textContent = String.fromCharCode(65+i) + ') ' + opt;
+    btn.dataset.i = i;
+    btn.addEventListener('click', ()=> chooseOption(i));
+    optionsEl.appendChild(btn);
+  });
+  // highlight previously chosen
+  const chosen = state.answers[state.index];
+  if(chosen !== null){
+    markChoice(chosen);
+  }
+  scoreLabel.textContent = `${state.answers.filter(x=>x!==null && x!==undefined && x!==false).reduce((acc,cur,idx)=> acc + (cur === state.pool[idx].a ? 1 : 0), 0)} / ${state.pool.length}`;
+}
+
+function chooseOption(i){
+  state.answers[state.index] = i;
+  const q = state.pool[state.index];
+  // show correct / wrong
+  explainEl.style.display = 'block';
+  explainEl.textContent = q.exp || '';
+  const opts = optionsEl.querySelectorAll('.opt');
+  opts.forEach((el, idx)=>{
+    el.classList.remove('correct','wrong');
+    if(idx === q.a) el.classList.add('correct');
+    if(idx === i && idx !== q.a) el.classList.add('wrong');
+  });
+  scoreLabel.textContent = `${state.answers.filter(x=>x!==null).reduce((acc,cur,idx)=> acc + (cur === state.pool[idx].a ? 1 : 0), 0)} / ${state.pool.length}`;
+}
+
+function markChoice(chosen){
+  const opts = optionsEl.querySelectorAll('.opt');
+  opts.forEach((el, idx)=>{
+    el.classList.remove('correct','wrong');
+    if(idx === state.pool[state.index].a) el.classList.add('correct');
+    if(idx === chosen && chosen !== state.pool[state.index].a) el.classList.add('wrong');
+  });
+  explainEl.style.display = 'block';
+  explainEl.textContent = state.pool[state.index].exp || '';
+}
+
+function changeIndex(newIdx){
+  if(newIdx < 0 || newIdx >= state.pool.length) return;
+  state.index = newIdx;
+  showQuestion();
+}
+
+function finishQuiz(){
+  // calculate score
+  const total = state.pool.length;
+  let correct = 0;
+  const details = [];
+  state.pool.forEach((q, idx)=>{
+    const chosen = state.answers[idx];
+    const ok = (chosen === q.a);
+    if(ok) correct++;
+    details.push({q:q.q, opts:q.opts, chosen, correct: q.a, ok, exp:q.exp});
+  });
+  // store high score
+  const prevHigh = parseInt(localStorage.getItem(state.highkey) || "0", 10);
+  if(correct > prevHigh) localStorage.setItem(state.highkey, String(correct));
+  // show summary
+  quizArea.style.display = 'none';
+  summary.style.display = 'block';
+  resultText.textContent = `You scored ${correct} out of ${total}.`;
+  breakdown.innerHTML = details.map((d,idx)=>{
+    return `<div style="margin-top:10px">
+      <strong>${idx+1}. ${escapeHtml(d.q)}</strong>
+      <div>Answer: ${String.fromCharCode(65 + d.correct)} — ${escapeHtml(d.opts[d.correct])}</div>
+      <div>Your choice: ${d.chosen===null? 'No answer' : (String.fromCharCode(65 + d.chosen) + ' — ' + escapeHtml(d.opts[d.chosen]))}</div>
+      <div style="color:var(--muted); margin-top:4px">Explanation: ${escapeHtml(d.exp)}</div>
+    </div>`;
+  }).join('');
+  highscoreEl.textContent = localStorage.getItem(state.highkey) || "0";
+}
+
+function updateHighscore(){
+  highscoreEl.textContent = localStorage.getItem(state.highkey) || "—";
+}
+
+/* ===== Utilities ===== */
+function shuffle(a){ for(let i=a.length-1;i>0;i--){ const j=Math.floor(Math.random()*(i+1)); [a[i],a[j]]=[a[j],a[i]]; } }
+function capitalize(s){ return s.charAt(0).toUpperCase()+s.slice(1); }
+function escapeHtml(s){ return (s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+/* ===== Optional: start with defaults ===== */
+// startQuiz(); // uncomment to auto-start with defaults
+</script>
+</body>
+</html>
